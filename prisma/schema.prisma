@@ -1,0 +1,84 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String    @id @db.Uuid
+  email        String    @unique
+  nickname     String?
+  profileImage String?   @map("profile_image")
+  friendCode   String    @unique @default(cuid()) @map("friend_code")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  reviews          Review[]
+  tasteProfile     TasteProfile?
+  sentRequests     Friendship[] @relation("requester")
+  receivedRequests Friendship[] @relation("receiver")
+
+  @@map("users")
+}
+
+model Review {
+  id           String      @id @default(cuid())
+  userId       String      @map("user_id") @db.Uuid
+  contentType  ContentType @map("content_type")
+  contentId    String      @map("content_id")
+  contentTitle String      @map("content_title")
+  contentImage String?     @map("content_image")
+  body         String
+  tags         String[]
+  isPublic     Boolean     @default(true) @map("is_public")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, contentType])
+  @@map("reviews")
+}
+
+model TasteProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique @map("user_id") @db.Uuid
+  keywords  String[]
+  summary   String
+  type      String
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("taste_profiles")
+}
+
+model Friendship {
+  id          String           @id @default(cuid())
+  requesterId String           @map("requester_id") @db.Uuid
+  receiverId  String           @map("receiver_id") @db.Uuid
+  status      FriendshipStatus @default(PENDING)
+  createdAt   DateTime         @default(now()) @map("created_at")
+
+  requester User @relation("requester", fields: [requesterId], references: [id], onDelete: Cascade)
+  receiver  User @relation("receiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, receiverId])
+  @@map("friendships")
+}
+
+enum ContentType {
+  MOVIE
+  BOOK
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}

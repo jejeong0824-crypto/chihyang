@@ -105,7 +105,7 @@
 │   │   ├── client.ts                # 브라우저용 Supabase 클라이언트
 │   │   ├── server.ts                # 서버용 Supabase 클라이언트
 │   │   └── middleware.ts            # 미들웨어용 Supabase 클라이언트
-│   ├── prisma.ts                    # Prisma 클라이언트 인스턴스
+│   ├── validations.ts               # Zod 스키마 (감상평, 닉네임 등)
 │   ├── claude.ts                    # Claude API 호출 유틸
 │   └── utils.ts                     # ✅ cn() (clsx + tailwind-merge)
 │
@@ -123,8 +123,10 @@
 ├── supabase/                        # Supabase 로컬 설정
 │   └── config.toml                  # 로컬 개발 설정 (API, DB, Studio 포트)
 │
-├── prisma/
-│   └── schema.prisma                # DB 스키마
+├── supabase/
+│   ├── config.toml                  # Supabase 로컬 설정
+│   └── migrations/
+│       └── 00001_init.sql           # DB 스키마 + RLS + 트리거
 │
 ├── middleware.ts                     # Supabase 세션 체크
 ├── package.json                     # pnpm, Turbopack
@@ -321,15 +323,11 @@ FriendCodeInput → Server Action (friend.ts)
   "dependencies": {
     "@supabase/supabase-js": "^2",
     "@supabase/ssr": "^0",
-    "@prisma/client": "^6",
     "@anthropic-ai/sdk": "^0.39",
     "react-hook-form": "^7",
     "zod": "^3",
     "@hookform/resolvers": "^3",
     "sonner": "^2"
-  },
-  "devDependencies": {
-    "prisma": "^6"
   }
 }
 ```

@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import { prisma } from "@/lib/prisma";
 import { Navbar } from "@/components/layout/navbar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,25 +15,24 @@ export default async function MyPage() {
 
   if (!authUser) return null;
 
-  const dbUser = await prisma.user.findUnique({
-    where: { id: authUser.id },
-    include: { tasteProfile: true },
-  });
+  const { data: dbUser } = await supabase
+    .from("users")
+    .select("*, taste_profiles(*)")
+    .eq("id", authUser.id)
+    .single();
 
   if (!dbUser) return null;
 
-  const reviews = await prisma.review.findMany({
-    where: { userId: authUser.id },
-    include: {
-      user: {
-        select: { id: true, nickname: true, profileImage: true },
-      },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  const { data: reviews } = await supabase
+    .from("reviews")
+    .select("*, users!inner(id, nickname, profile_image)")
+    .eq("user_id", authUser.id)
+    .order("created_at", { ascending: false });
 
-  const movieReviews = reviews.filter((r) => r.contentType === "MOVIE");
-  const bookReviews = reviews.filter((r) => r.contentType === "BOOK");
+  const allReviews = reviews ?? [];
+  const movieReviews = allReviews.filter((r) => r.content_type === "MOVIE");
+  const bookReviews = allReviews.filter((r) => r.content_type === "BOOK");
+  const tasteProfile = dbUser.taste_profiles;
 
   return (
     <>
@@ -42,26 +40,26 @@ export default async function MyPage() {
       <main className="mx-auto max-w-2xl px-4 py-6">
         <div className="mb-6 flex items-center gap-3">
           <Avatar className="h-12 w-12">
-            <AvatarImage src={dbUser.profileImage ?? undefined} />
+            <AvatarImage src={dbUser.profile_image ?? undefined} />
             <AvatarFallback>
               {dbUser.nickname?.charAt(0) ?? "?"}
             </AvatarFallback>
           </Avatar>
           <div>
             <p className="font-medium">{dbUser.nickname ?? "닉네임 없음"}</p>
-            <FriendCodeCopy code={dbUser.friendCode} />
+            <FriendCodeCopy code={dbUser.friend_code} />
           </div>
         </div>
 
         <div className="mb-6">
-          {dbUser.tasteProfile ? (
+          {tasteProfile ? (
             <TasteProfileCard
-              type={dbUser.tasteProfile.type}
-              keywords={dbUser.tasteProfile.keywords}
-              summary={dbUser.tasteProfile.summary}
+              type={tasteProfile.type}
+              keywords={tasteProfile.keywords}
+              summary={tasteProfile.summary}
             />
           ) : (
-            <TastePending reviewCount={reviews.length} />
+            <TastePending reviewCount={allReviews.length} />
           )}
         </div>
 
@@ -73,7 +71,7 @@ export default async function MyPage() {
             <TabsTrigger value="book">책</TabsTrigger>
           </TabsList>
           <TabsContent value="all" className="mt-4 flex flex-col gap-4">
-            {reviews.map((r) => (
+            {allReviews.map((r) => (
               <ReviewCard key={r.id} review={r} />
             ))}
           </TabsContent>

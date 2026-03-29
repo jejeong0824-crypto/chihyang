@@ -182,7 +182,7 @@
 | 다크모드 | next-themes |
 | 인증 | Supabase Auth (Google OAuth) |
 | DB | Supabase (PostgreSQL) |
-| ORM | Prisma |
+| DB 쿼리 | Supabase Client |
 | AI | Claude API |
 | 영화 검색 | TMDB API |
 | 책 검색 | Google Books API |

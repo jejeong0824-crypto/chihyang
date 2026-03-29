@@ -1,7 +1,6 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { prisma } from "@/lib/prisma";
 import { analyzeTasteFromReviews } from "@/lib/claude";
 import { revalidatePath } from "next/cache";
 import type { TasteComparison } from "@/types";
@@ -18,34 +17,51 @@ export async function analyzeTaste() {
   const userId = await getAuthUserId();
   if (!userId) return;
 
-  const reviews = await prisma.review.findMany({
-    where: { userId },
-    select: { contentType: true, contentTitle: true, body: true },
-  });
+  const supabase = await createClient();
+  const { data: reviews } = await supabase
+    .from("reviews")
+    .select("content_type, content_title, body")
+    .eq("user_id", userId);
 
-  if (reviews.length < 3) return;
+  if (!reviews || reviews.length < 3) return;
 
   try {
-    const result = await analyzeTasteFromReviews(reviews);
+    const result = await analyzeTasteFromReviews(
+      reviews.map((r) => ({
+        contentType: r.content_type,
+        contentTitle: r.content_title,
+        body: r.body,
+      })),
+    );
 
-    await prisma.tasteProfile.upsert({
-      where: { userId },
-      create: {
-        userId,
+    // Upsert taste profile
+    const { data: existing } = await supabase
+      .from("taste_profiles")
+      .select("id")
+      .eq("user_id", userId)
+      .single();
+
+    if (existing) {
+      await supabase
+        .from("taste_profiles")
+        .update({
+          keywords: result.keywords,
+          summary: result.summary,
+          type: result.type,
+        })
+        .eq("user_id", userId);
+    } else {
+      await supabase.from("taste_profiles").insert({
+        user_id: userId,
         keywords: result.keywords,
         summary: result.summary,
         type: result.type,
-      },
-      update: {
-        keywords: result.keywords,
-        summary: result.summary,
-        type: result.type,
-      },
-    });
+      });
+    }
 
     revalidatePath("/my");
   } catch {
-    // Claude API 실패 시 무시 — 다음 감상평 작성 시 재시도
+    // Claude API 실패 시 무시
   }
 }
 
@@ -55,9 +71,19 @@ export async function compareTaste(
   const userId = await getAuthUserId();
   if (!userId) return null;
 
-  const [myProfile, friendProfile] = await Promise.all([
-    prisma.tasteProfile.findUnique({ where: { userId } }),
-    prisma.tasteProfile.findUnique({ where: { userId: friendId } }),
+  const supabase = await createClient();
+
+  const [{ data: myProfile }, { data: friendProfile }] = await Promise.all([
+    supabase
+      .from("taste_profiles")
+      .select("keywords")
+      .eq("user_id", userId)
+      .single(),
+    supabase
+      .from("taste_profiles")
+      .select("keywords")
+      .eq("user_id", friendId)
+      .single(),
   ]);
 
   if (!myProfile || !friendProfile) return null;

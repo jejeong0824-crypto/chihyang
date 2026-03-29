@@ -1,7 +1,6 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { reviewSchema, reviewUpdateSchema } from "@/lib/validations";
@@ -22,21 +21,33 @@ export async function createReview(input: ReviewInput) {
   const parsed = reviewSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
-  const review = await prisma.review.create({
-    data: {
-      userId,
-      ...parsed.data,
-    },
-  });
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("reviews")
+    .insert({
+      user_id: userId,
+      content_type: parsed.data.contentType,
+      content_id: parsed.data.contentId,
+      content_title: parsed.data.contentTitle,
+      content_image: parsed.data.contentImage,
+      body: parsed.data.body,
+      tags: parsed.data.tags,
+      is_public: parsed.data.isPublic,
+    })
+    .select("id")
+    .single();
 
-  // 취향 분석 트리거
-  const count = await prisma.review.count({ where: { userId } });
-  const shouldAnalyze = count >= 3;
+  if (error) return { error: "저장에 실패했습니다." };
+
+  const { count } = await supabase
+    .from("reviews")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", userId);
 
   revalidatePath("/");
   revalidatePath("/my");
 
-  return { id: review.id, shouldAnalyze };
+  return { id: data.id, shouldAnalyze: (count ?? 0) >= 3 };
 }
 
 export async function updateReview(input: ReviewUpdateInput) {
@@ -46,22 +57,26 @@ export async function updateReview(input: ReviewUpdateInput) {
   const parsed = reviewUpdateSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
-  const review = await prisma.review.findUnique({
-    where: { id: parsed.data.id },
-  });
+  const supabase = await createClient();
 
-  if (!review || review.userId !== userId) {
-    return { error: "권한이 없습니다." };
-  }
+  const { data: review } = await supabase
+    .from("reviews")
+    .select("user_id")
+    .eq("id", parsed.data.id)
+    .single();
 
-  await prisma.review.update({
-    where: { id: parsed.data.id },
-    data: {
+  if (!review || review.user_id !== userId) return { error: "권한이 없습니다." };
+
+  const { error } = await supabase
+    .from("reviews")
+    .update({
       body: parsed.data.body,
       tags: parsed.data.tags,
-      isPublic: parsed.data.isPublic,
-    },
-  });
+      is_public: parsed.data.isPublic,
+    })
+    .eq("id", parsed.data.id);
+
+  if (error) return { error: "수정에 실패했습니다." };
 
   revalidatePath("/");
   revalidatePath("/my");
@@ -74,65 +89,20 @@ export async function deleteReview(id: string) {
   const userId = await getAuthUserId();
   if (!userId) return { error: "로그인이 필요합니다." };
 
-  const review = await prisma.review.findUnique({ where: { id } });
-  if (!review || review.userId !== userId) {
-    return { error: "권한이 없습니다." };
-  }
+  const supabase = await createClient();
 
-  await prisma.review.delete({ where: { id } });
+  const { data: review } = await supabase
+    .from("reviews")
+    .select("user_id")
+    .eq("id", id)
+    .single();
+
+  if (!review || review.user_id !== userId) return { error: "권한이 없습니다." };
+
+  await supabase.from("reviews").delete().eq("id", id);
 
   revalidatePath("/");
   revalidatePath("/my");
 
   redirect("/my");
-}
-
-export async function getMyReviews(contentType?: "MOVIE" | "BOOK") {
-  const userId = await getAuthUserId();
-  if (!userId) return [];
-
-  return prisma.review.findMany({
-    where: {
-      userId,
-      ...(contentType ? { contentType } : {}),
-    },
-    include: {
-      user: {
-        select: { id: true, nickname: true, profileImage: true },
-      },
-    },
-    orderBy: { createdAt: "desc" },
-  });
-}
-
-export async function getFriendFeed() {
-  const userId = await getAuthUserId();
-  if (!userId) return [];
-
-  const friendships = await prisma.friendship.findMany({
-    where: {
-      status: "ACCEPTED",
-      OR: [{ requesterId: userId }, { receiverId: userId }],
-    },
-  });
-
-  const friendIds = friendships.map((f) =>
-    f.requesterId === userId ? f.receiverId : f.requesterId,
-  );
-
-  if (friendIds.length === 0) return [];
-
-  return prisma.review.findMany({
-    where: {
-      userId: { in: friendIds },
-      isPublic: true,
-    },
-    include: {
-      user: {
-        select: { id: true, nickname: true, profileImage: true },
-      },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 20,
-  });
 }

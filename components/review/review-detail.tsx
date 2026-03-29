@@ -10,10 +10,24 @@ import { updateReview, deleteReview } from "@/actions/review";
 import { analyzeTaste } from "@/actions/taste";
 import { toast } from "sonner";
 import Link from "next/link";
-import type { ReviewWithUser } from "@/types";
 
 interface ReviewDetailProps {
-  review: ReviewWithUser;
+  review: {
+    id: string;
+    user_id: string;
+    content_type: string;
+    content_title: string;
+    content_image: string | null;
+    body: string;
+    tags: string[];
+    is_public: boolean;
+    created_at: string;
+    users: {
+      id: string;
+      nickname: string | null;
+      profile_image: string | null;
+    };
+  };
   isOwner: boolean;
 }
 
@@ -21,12 +35,12 @@ export function ReviewDetail({ review, isOwner }: ReviewDetailProps) {
   const [editing, setEditing] = useState(false);
   const [body, setBody] = useState(review.body);
   const [tags, setTags] = useState(review.tags);
-  const [isPublic, setIsPublic] = useState(review.isPublic);
+  const [isPublic, setIsPublic] = useState(review.is_public);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const icon = review.contentType === "MOVIE" ? "🎬" : "📚";
-  const date = new Date(review.createdAt).toLocaleDateString("ko-KR");
+  const icon = review.content_type === "MOVIE" ? "🎬" : "📚";
+  const date = new Date(review.created_at).toLocaleDateString("ko-KR");
 
   const handleSave = async () => {
     setLoading(true);
@@ -56,16 +70,16 @@ export function ReviewDetail({ review, isOwner }: ReviewDetailProps) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
-        {review.contentImage && (
+        {review.content_image && (
           <img
-            src={review.contentImage}
-            alt={review.contentTitle}
+            src={review.content_image}
+            alt={review.content_title}
             className="h-20 w-14 rounded object-cover"
           />
         )}
         <div>
           <p className="font-medium">
-            {icon} {review.contentTitle}
+            {icon} {review.content_title}
           </p>
         </div>
       </div>
@@ -115,12 +129,12 @@ export function ReviewDetail({ review, isOwner }: ReviewDetailProps) {
 
           <p className="text-xs text-muted-foreground">
             <Link
-              href={`/friends/${review.user.id}`}
+              href={`/friends/${review.users.id}`}
               className="hover:underline"
             >
-              {review.user.nickname ?? "익명"}
+              {review.users.nickname ?? "익명"}
             </Link>{" "}
-            · {date} · {review.isPublic ? "공개" : "비공개"}
+            · {date} · {review.is_public ? "공개" : "비공개"}
           </p>
 
           {isOwner && (

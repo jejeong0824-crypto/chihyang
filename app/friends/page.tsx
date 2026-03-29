@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import { prisma } from "@/lib/prisma";
 import { Navbar } from "@/components/layout/navbar";
 import { FriendCodeInput } from "@/components/friend/friend-code-input";
 import { FriendRequestCard } from "@/components/friend/friend-request-card";
@@ -16,48 +15,30 @@ export default async function FriendsPage() {
 
   if (!authUser) return null;
 
-  const dbUser = await prisma.user.findUnique({
-    where: { id: authUser.id },
-  });
+  const { data: dbUser } = await supabase
+    .from("users")
+    .select("friend_code")
+    .eq("id", authUser.id)
+    .single();
 
   // 받은 요청
-  const pendingRequests = await prisma.friendship.findMany({
-    where: { receiverId: authUser.id, status: "PENDING" },
-    include: {
-      requester: {
-        select: { id: true, nickname: true, profileImage: true },
-      },
-    },
-  });
+  const { data: pendingRequests } = await supabase
+    .from("friendships")
+    .select("id, requester:users!friendships_requester_id_fkey(id, nickname, profile_image)")
+    .eq("receiver_id", authUser.id)
+    .eq("status", "PENDING");
 
-  // 친구 목록
-  const friendships = await prisma.friendship.findMany({
-    where: {
-      status: "ACCEPTED",
-      OR: [{ requesterId: authUser.id }, { receiverId: authUser.id }],
-    },
-    include: {
-      requester: {
-        select: {
-          id: true,
-          nickname: true,
-          profileImage: true,
-          tasteProfile: { select: { type: true } },
-        },
-      },
-      receiver: {
-        select: {
-          id: true,
-          nickname: true,
-          profileImage: true,
-          tasteProfile: { select: { type: true } },
-        },
-      },
-    },
-  });
+  // 수락된 친구 관계
+  const { data: friendships } = await supabase
+    .from("friendships")
+    .select(
+      "requester_id, receiver_id, requester:users!friendships_requester_id_fkey(id, nickname, profile_image, taste_profiles(type)), receiver:users!friendships_receiver_id_fkey(id, nickname, profile_image, taste_profiles(type))",
+    )
+    .eq("status", "ACCEPTED")
+    .or(`requester_id.eq.${authUser.id},receiver_id.eq.${authUser.id}`);
 
-  const friends = friendships.map((f) =>
-    f.requesterId === authUser.id ? f.receiver : f.requester,
+  const friends = (friendships ?? []).map((f) =>
+    f.requester_id === authUser.id ? f.receiver : f.requester,
   );
 
   return (
@@ -69,13 +50,13 @@ export default async function FriendsPage() {
 
         <hr className="my-6" />
 
-        {pendingRequests.length > 0 && (
+        {(pendingRequests ?? []).length > 0 && (
           <>
             <h3 className="mb-3 text-sm font-medium">
-              받은 요청 ({pendingRequests.length})
+              받은 요청 ({pendingRequests!.length})
             </h3>
             <div className="mb-6 flex flex-col gap-2">
-              {pendingRequests.map((req) => (
+              {pendingRequests!.map((req: any) => (
                 <FriendRequestCard
                   key={req.id}
                   friendshipId={req.id}
@@ -93,13 +74,13 @@ export default async function FriendsPage() {
               내 친구 ({friends.length})
             </h3>
             <div className="flex flex-col gap-2">
-              {friends.map((f) => (
+              {friends.map((f: any) => (
                 <FriendCard
                   key={f.id}
                   id={f.id}
                   nickname={f.nickname}
-                  profileImage={f.profileImage}
-                  tasteType={f.tasteProfile?.type}
+                  profileImage={f.profile_image}
+                  tasteType={f.taste_profiles?.type}
                 />
               ))}
             </div>
@@ -110,7 +91,7 @@ export default async function FriendsPage() {
               icon={Users}
               message="아직 친구가 없어요. 친구 코드를 공유해서 친구를 추가해보세요"
             />
-            {dbUser && <FriendCodeCopy code={dbUser.friendCode} />}
+            {dbUser && <FriendCodeCopy code={dbUser.friend_code} />}
           </div>
         )}
       </main>

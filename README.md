@@ -27,7 +27,8 @@
 | 스타일링 | Tailwind CSS 4 + shadcn/ui (radix-lyra) |
 | 다크모드 | next-themes |
 | 인증 | Supabase Auth (Google OAuth) |
-| DB | Supabase (PostgreSQL) + Prisma |
+| DB | Supabase (PostgreSQL) |
+| DB 쿼리 | Supabase Client (@supabase/supabase-js) |
 | AI | Claude API (@anthropic-ai/sdk) |
 | 외부 API | TMDB (영화), Google Books (책) |
 | 패키지 매니저 | pnpm |
@@ -41,54 +42,54 @@
 │
 ├── app/                           # Next.js App Router
 │   ├── globals.css                # Tailwind CSS 4 + CSS 변수
-│   ├── layout.tsx                 # 루트 레이아웃 (ThemeProvider, 폰트)
+│   ├── layout.tsx                 # 루트 레이아웃 (ThemeProvider, Toaster)
 │   ├── page.tsx                   # / — 홈 피드
-│   └── favicon.ico
+│   ├── login/page.tsx             # /login
+│   ├── review/
+│   │   ├── new/page.tsx           # /review/new — 감상평 작성
+│   │   └── [id]/page.tsx          # /review/[id] — 감상평 상세
+│   ├── my/page.tsx                # /my — 마이페이지
+│   ├── friends/
+│   │   ├── page.tsx               # /friends — 친구 목록
+│   │   └── [id]/page.tsx          # /friends/[id] — 취향 비교
+│   └── api/
+│       ├── auth/callback/         # Supabase OAuth 콜백
+│       └── search/                # 영화/책 검색 프록시
 │
 ├── components/
-│   ├── theme-provider.tsx         # 다크모드 (next-themes)
-│   └── ui/
-│       └── button.tsx             # shadcn/ui Button
+│   ├── ui/                        # shadcn/ui (10개 컴포넌트)
+│   ├── layout/                    # Navbar, FAB
+│   ├── review/                    # 감상평 카드, 폼, 검색, 태그
+│   ├── taste/                     # 취향 프로필, 비교, 대기
+│   ├── friend/                    # 친구 카드, 요청, 코드
+│   ├── auth/                      # 로그인 버튼, 닉네임 모달
+│   └── shared/                    # 빈 상태, 확인 모달
+│
+├── actions/                       # Server Actions
+│   ├── review.ts                  # 감상평 CRUD
+│   ├── taste.ts                   # 취향 분석/비교
+│   ├── friend.ts                  # 친구 요청/수락/거절
+│   └── user.ts                    # 닉네임 설정
 │
 ├── lib/
-│   └── utils.ts                   # cn() (clsx + tailwind-merge)
+│   ├── supabase/                  # Supabase 클라이언트 (client, server, middleware)
+│   ├── claude.ts                  # Claude API 유틸
+│   ├── validations.ts             # Zod 스키마
+│   └── utils.ts                   # cn()
 │
-├── hooks/                         # 커스텀 React Hooks
-├── public/                        # 정적 파일
+├── types/
+│   ├── index.ts                   # 공통 타입
+│   └── database.ts                # DB 테이블 타입
 │
 ├── supabase/
-│   └── config.toml                # Supabase 로컬 개발 설정
+│   ├── config.toml                # Supabase 로컬 설정
+│   └── migrations/
+│       └── 00001_init.sql         # DB 스키마 + RLS + 트리거
 │
-├── prd.md                         # MVP 제품 요구사항 정의서
-├── user-flow.md                   # 시나리오별 사용자 플로우 (9개)
-├── screens.md                     # 화면 와이어프레임 (7개 페이지)
-├── frontend_architecture.md       # 프론트엔드 아키텍처
-├── backend_architecture.md        # 백엔드 아키텍처
-├── implementation_plan.md         # 구현 계획 (11 Phase)
-│
-├── package.json                   # pnpm, Turbopack
-├── pnpm-lock.yaml
-├── tsconfig.json                  # paths: @/* → ./*
-├── postcss.config.mjs             # @tailwindcss/postcss
-├── next.config.mjs
-├── eslint.config.mjs
-├── components.json                # shadcn/ui (radix-lyra, mist)
-├── .prettierrc
-└── .gitignore
+├── middleware.ts                   # Supabase 세션 체크
+├── package.json
+└── .env.local                     # 환경변수 (git 제외)
 ```
-
----
-
-## 기획 문서
-
-| 문서 | 설명 |
-|------|------|
-| [prd.md](prd.md) | MVP 범위, 핵심 기능 정의, 데이터 모델, 페이지 구조 |
-| [user-flow.md](user-flow.md) | 첫 가입, 감상평 작성, 취향 비교 등 9개 시나리오별 흐름 |
-| [screens.md](screens.md) | 로그인, 홈, 감상평 작성/상세, 마이페이지, 친구 와이어프레임 |
-| [frontend_architecture.md](frontend_architecture.md) | 디렉토리 구조, 컴포넌트 트리, 데이터 흐름, 라이브러리 |
-| [backend_architecture.md](backend_architecture.md) | Prisma 스키마, API 엔드포인트, Claude 프롬프트, 에러 처리 |
-| [implementation_plan.md](implementation_plan.md) | 11단계 구현 계획, 의존 관계, 완료 기준 |
 
 ---
 
@@ -96,8 +97,7 @@
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-DATABASE_URL=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=
 TMDB_API_KEY=
 GOOGLE_BOOKS_API_KEY=
 ANTHROPIC_API_KEY=
@@ -114,8 +114,8 @@ pnpm install
 # 2. 환경변수 설정
 cp .env.example .env.local
 
-# 3. DB 스키마 반영
-pnpm dlx prisma db push
+# 3. Supabase 마이그레이션 (대시보드 SQL Editor에서 실행)
+# supabase/migrations/00001_init.sql 내용 복사 → 실행
 
 # 4. 개발 서버 실행
 pnpm dev

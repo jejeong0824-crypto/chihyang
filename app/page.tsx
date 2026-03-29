@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import { prisma } from "@/lib/prisma";
 import { Navbar } from "@/components/layout/navbar";
 import { FAB } from "@/components/layout/fab";
 import { NicknameModal } from "@/components/auth/nickname-modal";
@@ -15,39 +14,37 @@ export default async function HomePage() {
 
   if (!authUser) return null;
 
-  const dbUser = await prisma.user.findUnique({
-    where: { id: authUser.id },
-  });
+  const { data: dbUser } = await supabase
+    .from("users")
+    .select("nickname")
+    .eq("id", authUser.id)
+    .single();
 
   const needsNickname = !dbUser?.nickname;
 
-  const friendships = await prisma.friendship.findMany({
-    where: {
-      status: "ACCEPTED",
-      OR: [{ requesterId: authUser.id }, { receiverId: authUser.id }],
-    },
-  });
+  // 친구 목록 조회
+  const { data: friendships } = await supabase
+    .from("friendships")
+    .select("requester_id, receiver_id")
+    .eq("status", "ACCEPTED")
+    .or(`requester_id.eq.${authUser.id},receiver_id.eq.${authUser.id}`);
 
-  const friendIds = friendships.map((f) =>
-    f.requesterId === authUser.id ? f.receiverId : f.requesterId,
+  const friendIds = (friendships ?? []).map((f) =>
+    f.requester_id === authUser.id ? f.receiver_id : f.requester_id,
   );
 
-  const reviews =
-    friendIds.length > 0
-      ? await prisma.review.findMany({
-          where: {
-            userId: { in: friendIds },
-            isPublic: true,
-          },
-          include: {
-            user: {
-              select: { id: true, nickname: true, profileImage: true },
-            },
-          },
-          orderBy: { createdAt: "desc" },
-          take: 20,
-        })
-      : [];
+  // 친구 공개 감상평 피드
+  let reviews: any[] = [];
+  if (friendIds.length > 0) {
+    const { data } = await supabase
+      .from("reviews")
+      .select("*, users!inner(id, nickname, profile_image)")
+      .in("user_id", friendIds)
+      .eq("is_public", true)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    reviews = data ?? [];
+  }
 
   return (
     <>

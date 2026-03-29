@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { prisma } from "@/lib/prisma";
 import { compareTaste } from "@/actions/taste";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -24,29 +23,28 @@ export default async function FriendProfilePage({
 
   if (!authUser) return null;
 
-  const friend = await prisma.user.findUnique({
-    where: { id },
-    include: { tasteProfile: true },
-  });
+  const { data: friend } = await supabase
+    .from("users")
+    .select("*, taste_profiles(*)")
+    .eq("id", id)
+    .single();
 
   if (!friend) notFound();
 
-  const myUser = await prisma.user.findUnique({
-    where: { id: authUser.id },
-    include: { tasteProfile: true },
-  });
+  const { data: myUser } = await supabase
+    .from("users")
+    .select("nickname, taste_profiles(summary)")
+    .eq("id", authUser.id)
+    .single();
 
   const comparison = await compareTaste(id);
 
-  const reviews = await prisma.review.findMany({
-    where: { userId: id, isPublic: true },
-    include: {
-      user: {
-        select: { id: true, nickname: true, profileImage: true },
-      },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  const { data: reviews } = await supabase
+    .from("reviews")
+    .select("*, users!inner(id, nickname, profile_image)")
+    .eq("user_id", id)
+    .eq("is_public", true)
+    .order("created_at", { ascending: false });
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
@@ -60,15 +58,15 @@ export default async function FriendProfilePage({
 
       <div className="mb-6 flex items-center gap-3">
         <Avatar className="h-12 w-12">
-          <AvatarImage src={friend.profileImage ?? undefined} />
+          <AvatarImage src={friend.profile_image ?? undefined} />
           <AvatarFallback>
             {friend.nickname?.charAt(0) ?? "?"}
           </AvatarFallback>
         </Avatar>
         <div>
           <p className="font-medium">{friend.nickname ?? "익명"}</p>
-          {friend.tasteProfile && (
-            <Badge variant="secondary">{friend.tasteProfile.type}</Badge>
+          {friend.taste_profiles && (
+            <Badge variant="secondary">{friend.taste_profiles.type}</Badge>
           )}
         </div>
       </div>
@@ -79,8 +77,8 @@ export default async function FriendProfilePage({
             comparison={comparison}
             myName={myUser?.nickname ?? "나"}
             friendName={friend.nickname ?? "친구"}
-            mySummary={myUser?.tasteProfile?.summary}
-            friendSummary={friend.tasteProfile?.summary}
+            mySummary={myUser?.taste_profiles?.summary}
+            friendSummary={friend.taste_profiles?.summary}
           />
         ) : (
           <EmptyState message="아직 취향 분석이 완료되지 않았어요" />
@@ -91,7 +89,7 @@ export default async function FriendProfilePage({
         {friend.nickname ?? "친구"}의 감상평
       </h3>
       <div className="flex flex-col gap-4">
-        {reviews.map((r) => (
+        {(reviews ?? []).map((r) => (
           <ReviewCard key={r.id} review={r} />
         ))}
       </div>

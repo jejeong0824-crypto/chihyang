@@ -2,9 +2,13 @@ import { type NextRequest, NextResponse } from "next/server";
 
 export function middleware(request: NextRequest) {
   // Supabase 세션 쿠키 존재 여부로 로그인 판단
-  const hasSession = request.cookies
-    .getAll()
-    .some((c) => c.name.startsWith("sb-") && c.name.endsWith("-auth-token"));
+  const allCookies = request.cookies.getAll();
+  const hasSession = allCookies.some(
+    (c) =>
+      c.name.startsWith("sb-") ||
+      c.name.includes("supabase") ||
+      c.name.includes("auth-token"),
+  );
 
   const { pathname } = request.nextUrl;
 

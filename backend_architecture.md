@@ -11,7 +11,7 @@
 | DB + 쿼리 | Supabase Client (@supabase/supabase-js) | RLS 연동, ORM 불필요, 직접 쿼리 |
 | DB | Supabase (PostgreSQL) | 무료 티어, 실시간 기능, Auth 연동 |
 | 인증 | Supabase Auth | Google OAuth, 쿠키 기반 세션, RLS 연동 |
-| AI | @anthropic-ai/sdk | Claude API로 취향 분석 |
+| AI | @google/genai | Gemini API로 취향 분석 |
 | 외부 API | TMDB, Google Books | 영화/책 검색 |
 | 유효성 검증 | Zod | 요청 데이터 검증, 프론트엔드와 스키마 공유 |
 
@@ -140,7 +140,7 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY="sb_publishable_..."
 # External APIs
 TMDB_API_KEY="..."
 GOOGLE_BOOKS_API_KEY="..."
-ANTHROPIC_API_KEY="..."
+GEMINI_API_KEY="..."
 ```
 
 > `DATABASE_URL` 불필요 — Supabase Client가 URL + anon key로 직접 접근.
@@ -178,6 +178,6 @@ ANTHROPIC_API_KEY="..."
 | 미인증 요청 | `middleware.ts`에서 Supabase 세션 체크 → `/login` 리다이렉트 |
 | Server Action 권한 위반 | `supabase.auth.getUser()` userId !== 리소스 소유자 → 에러 반환 |
 | 외부 API 실패 (TMDB, Google Books) | 빈 결과 반환 + 토스트로 안내 |
-| Claude API 실패 | 취향 분석 건너뛰기 + 다음 감상평 작성 시 재시도 |
+| Gemini API 실패 | 취향 분석 건너뛰기 + 다음 감상평 작성 시 재시도 |
 | Supabase 쿼리 에러 | 사용자 친화적 메시지 반환 |
 | Zod 유효성 실패 | 필드별 에러 메시지 반환 |

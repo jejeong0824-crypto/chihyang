@@ -23,7 +23,7 @@
 - 수정/삭제
 
 ### 2.3 AI 취향 분석
-- 감상평 **3개 이상** 시 분석 결과 생성 (Claude API)
+- 감상평 **3개 이상** 시 분석 결과 생성 (Gemini API)
 - 분석 항목:
   - **취향 키워드** — 반복되는 선호 요소 (예: "복선 회수", "도덕적 딜레마")
   - **취향 요약** — 1~2문장 설명
@@ -183,7 +183,7 @@
 | 인증 | Supabase Auth (Google OAuth) |
 | DB | Supabase (PostgreSQL) |
 | DB 쿼리 | Supabase Client |
-| AI | Claude API |
+| AI | Gemini API (@google/genai) |
 | 영화 검색 | TMDB API |
 | 책 검색 | Google Books API |
 

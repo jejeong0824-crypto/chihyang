@@ -29,7 +29,7 @@
 | 인증 | Supabase Auth (Google OAuth) |
 | DB | Supabase (PostgreSQL) |
 | DB 쿼리 | Supabase Client (@supabase/supabase-js) |
-| AI | Claude API (@anthropic-ai/sdk) |
+| AI | Gemini API (@google/genai) |
 | 외부 API | TMDB (영화), Google Books (책) |
 | 패키지 매니저 | pnpm |
 
@@ -100,7 +100,7 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=
 TMDB_API_KEY=
 GOOGLE_BOOKS_API_KEY=
-ANTHROPIC_API_KEY=
+GEMINI_API_KEY=
 ```
 
 ---

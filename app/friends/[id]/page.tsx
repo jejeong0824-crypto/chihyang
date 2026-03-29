@@ -77,8 +77,8 @@ export default async function FriendProfilePage({
             comparison={comparison}
             myName={myUser?.nickname ?? "나"}
             friendName={friend.nickname ?? "친구"}
-            mySummary={myUser?.taste_profiles?.summary}
-            friendSummary={friend.taste_profiles?.summary}
+            mySummary={(myUser?.taste_profiles as any)?.[0]?.summary ?? (myUser?.taste_profiles as any)?.summary}
+            friendSummary={(friend.taste_profiles as any)?.summary}
           />
         ) : (
           <EmptyState message="아직 취향 분석이 완료되지 않았어요" />

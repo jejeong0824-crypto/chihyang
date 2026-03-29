@@ -88,14 +88,16 @@ export async function compareTaste(
 
   if (!myProfile || !friendProfile) return null;
 
-  const mySet = new Set(myProfile.keywords);
-  const friendSet = new Set(friendProfile.keywords);
+  const myKeywords = myProfile.keywords as string[];
+  const friendKeywords = friendProfile.keywords as string[];
+  const mySet = new Set(myKeywords);
+  const friendSet = new Set(friendKeywords);
   const allKeywords = new Set([...mySet, ...friendSet]);
   const overlapping = [...mySet].filter((k) => friendSet.has(k));
 
   return {
-    myKeywords: myProfile.keywords,
-    friendKeywords: friendProfile.keywords,
+    myKeywords,
+    friendKeywords,
     overlapping,
     matchRate: Math.round((overlapping.length / allKeywords.size) * 100),
   };

@@ -26,10 +26,7 @@ async function searchMovies(query: string): Promise<SearchResult[]> {
   if (!apiKey) return [];
 
   const res = await fetch(
-    `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(query)}&language=ko-KR`,
-    {
-      headers: { Authorization: `Bearer ${apiKey}` },
-    },
+    `https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&query=${encodeURIComponent(query)}&language=ko-KR`,
   );
 
   if (!res.ok) return [];
